@@ -1,0 +1,11 @@
+{
+  "name": "open-kingston",
+  "version": "0.0.1",
+  "description": "Access civic information about Kingston, NY in a better interface",
+  "main": "index.js",
+  "author": "B. Cedric Cogell <cedric.cogell@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "mapbox-gl": "^0.38.0"
+  }
+}
