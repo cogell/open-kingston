@@ -30,44 +30,33 @@ function filterResults(results) {
 }
 
 function cleanName(str) {
-  return str.split(':')[1];
+  // Kingston (City): Ward 1 - District 1 -> Ward 1
+  return str.split(':')[1].split('-')[0];
+}
+
+function dissolveDistricts(featureArray) {
+  // add ward number to properties
+  const annotatedFeatures = _.map(featureArray, function(feature){
+    const wardNumber = feature.properties.Name.match(/\d/)[0];
+    const newFeature = _.merge(feature, { properties: { ward: wardNumber } });
+
+    console.log('feature:', feature);
+
+    return newFeature;
+  });
+  const annotatedCollection = turf.featureCollection(annotatedFeatures);
+
+  return turf.dissolve(annotatedCollection, 'ward');
 }
 
 function addGeoJSONSource(sourceTitle, featureArray){
   if (!mapLoaded || !featureArray) { return; }
 
-  const featureBBox = turf.bbox({
-    "type": "FeatureCollection",
-    "features": featureArray
-  });
-
-  const featureBBoxPolygon = turf.bboxPolygon(featureBBox);
-
-  console.log('featureBBoxPolygon', featureBBoxPolygon);
-
-  map.addLayer({
-    "id": "wards-bbox",
-    "type": "fill",
-    "source": {
-      "type": "geojson",
-      "data": {
-        "type": "FeatureCollection",
-        "features": [featureBBoxPolygon],
-      },
-    },
-    "layout": {},
-    "paint": {
-      "fill-color": "#f00",
-      "fill-opacity": 0.5
-    },
-  });
+  const wardCollection = dissolveDistricts(featureArray);
 
   map.addSource(sourceTitle, {
     "type": "geojson",
-    "data": {
-      "type": "FeatureCollection",
-      "features": featureArray
-    }
+    "data": wardCollection
   });
 
   map.addLayer({

@@ -15,7 +15,7 @@ body {
   height: 100vh;
 }
 
-.info {
+.info-wrapper {
   position: absolute;
   left: 0; top: 0; right: 0; bottom: 0;
 
@@ -23,8 +23,15 @@ body {
   justify-content: center;
   align-items: center;
 
-  text-shadow: 0 0 2px #fff;
-
   z-index: 1;
   pointer-events:none;
+}
+
+.info {
+  width: 100%;
+  padding: 10px;
+  text-align: center;
+  text-shadow: 0 0 2px #fff;
+  font-size: 21px;
+  background-color: rgba(0,0,0, 0.1);
 }
