@@ -6,6 +6,7 @@
   "author": "B. Cedric Cogell <cedric.cogell@gmail.com>",
   "license": "MIT",
   "dependencies": {
+    "@turf/turf": "^4.5.2",
     "mapbox-gl": "^0.38.0"
   }
 }

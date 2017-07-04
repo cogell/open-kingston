@@ -36,8 +36,31 @@ function cleanName(str) {
 function addGeoJSONSource(sourceTitle, featureArray){
   if (!mapLoaded || !featureArray) { return; }
 
-  console.log('sourceTitle', sourceTitle);
-  console.log('featureArray', featureArray);
+  const featureBBox = turf.bbox({
+    "type": "FeatureCollection",
+    "features": featureArray
+  });
+
+  const featureBBoxPolygon = turf.bboxPolygon(featureBBox);
+
+  console.log('featureBBoxPolygon', featureBBoxPolygon);
+
+  map.addLayer({
+    "id": "wards-bbox",
+    "type": "fill",
+    "source": {
+      "type": "geojson",
+      "data": {
+        "type": "FeatureCollection",
+        "features": [featureBBoxPolygon],
+      },
+    },
+    "layout": {},
+    "paint": {
+      "fill-color": "#f00",
+      "fill-opacity": 0.5
+    },
+  });
 
   map.addSource(sourceTitle, {
     "type": "geojson",
@@ -110,4 +133,7 @@ var map = new mapboxgl.Map({
   }).on('load', function () {
     mapLoaded = true;
     addGeoJSONSource("wards", filteredResults);
-  });
+  }).
+  addControl(new MapboxGeocoder({
+    accessToken: mapboxgl.accessToken
+  }));
