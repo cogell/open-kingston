@@ -21,7 +21,7 @@ body {
 
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-end;
 
   z-index: 1;
   pointer-events:none;
@@ -34,4 +34,17 @@ body {
   text-shadow: 0 0 2px #fff;
   font-size: 21px;
   background-color: rgba(0,0,0, 0.1);
+}
+
+/*.mapboxgl-marker {*/
+  /*background-color: black;*/
+  /*width: 33px;*/
+  /*border-radius: 50%;*/
+  /*height: 33px;*/
+/*}*/
+
+/* Need wrapper cause MapBox places marker over canvas with transform */
+#ward-label-marker-wrapper {}
+#ward-label-marker {
+  transform: translate(-50%);
 }

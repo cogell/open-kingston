@@ -9,15 +9,16 @@ const bounds = [
 const mapStyle = 'mapbox://styles/mapbox/light-v9';
 
 var mapLoaded = false;
-var filteredResults = [];
+var wardFeatureCollection = [];
 
 mapboxgl.accessToken = 'pk.eyJ1IjoiY29nZWxsIiwiYSI6ImNqNGltcDQ2czAwOXkycW5yY3A3ZWwzYnMifQ.DFHlBiBaUSnxwi1vw5KeXQ';
 
 // HELPER FUNCTIONS
 
-// return array of kingston wards
+
+// GeoJSON: results -> GeoJSON?: wards (with dissolved districts)
 function filterResults(results) {
-  return _.filter(results.features, function(feature){
+  const wardsWithDistricts = _.filter(results.features, function(feature){
     if (feature.properties.Name) {
       return (
         feature.properties.Name.match(/kingston/i) &&
@@ -27,20 +28,22 @@ function filterResults(results) {
 
     return false
   });
+
+  return dissolveDistricts(wardsWithDistricts);
 }
 
-function cleanName(str) {
+// String -> String
+function getHumanWardName(str) {
   // Kingston (City): Ward 1 - District 1 -> Ward 1
   return str.split(':')[1].split('-')[0];
 }
 
+// FeatureCollection? -> FeatureCollection
 function dissolveDistricts(featureArray) {
   // add ward number to properties
   const annotatedFeatures = _.map(featureArray, function(feature){
     const wardNumber = feature.properties.Name.match(/\d/)[0];
     const newFeature = _.merge(feature, { properties: { ward: wardNumber } });
-
-    console.log('feature:', feature);
 
     return newFeature;
   });
@@ -49,14 +52,14 @@ function dissolveDistricts(featureArray) {
   return turf.dissolve(annotatedCollection, 'ward');
 }
 
-function addGeoJSONSource(sourceTitle, featureArray){
-  if (!mapLoaded || !featureArray) { return; }
-
-  const wardCollection = dissolveDistricts(featureArray);
+// non-pure function
+function mapWardsGeoJSON(){
+  if (!mapLoaded || !wardFeatureCollection) { return; }
+  const sourceTitle = "wards";
 
   map.addSource(sourceTitle, {
     "type": "geojson",
-    "data": wardCollection
+    "data": wardFeatureCollection
   });
 
   map.addLayer({
@@ -85,19 +88,12 @@ function addGeoJSONSource(sourceTitle, featureArray){
     "source": sourceTitle,
     "paint": {
       "fill-color": "#888888",
-      "fill-opacity": 0.5,
+      "fill-opacity": 0.3,
     },
     "filter": ["==", "Name", ""]
   });
 
-  // When the user moves their mouse over the states-fill layer, we'll update the filter in
-  // the state-fills-hover layer to only show the matching state, thus making a hover effect.
-  map.on("mousemove", "wards", function(e) {
-    const name = e.features[0].properties.Name;
-
-    map.setFilter("wards-hover", ["==", "Name", name]);
-    document.getElementsByClassName('info')[0].textContent = cleanName(name);
-  });
+  map.on("mousemove", "wards", onMouseOver);
 
   // Reset the wards-hover layer's filter when the mouse leaves the layer.
   map.on("mouseleave", "wards", function() {
@@ -105,24 +101,130 @@ function addGeoJSONSource(sourceTitle, featureArray){
   });
 }
 
-// MAIN
+function onMouseOver(e) {
+  const wardName = e.features[0].properties.Name;
+  const humanWardName = getHumanWardName(wardName)
+
+  // When the user moves their mouse over the states-fill layer, we'll update the filter in
+  // the "wards-hover "layer to only show the matching state, thus making a hover effect.
+  map.setFilter("wards-hover", ["==", "Name", wardName]);
+  updateInfoLabel(humanWardName);
+  // placeLabelOnWardCenter(wardName);
+  placeWardLabelUnderMouse(e.lngLat, humanWardName)
+}
+
+function getWardFeatureByName(name) {
+  return _.find(wardFeatureCollection.features, function (feature) {
+    return feature.properties.Name === name;
+  })
+}
+
+function placeWardLabelUnderMouse(lngLat, wardName) {
+  if (!window.wardMarker) {
+    const wardMarkerWapper = document.createElement('div');
+    wardMarkerWapper.id = 'ward-label-marker-wrapper';
+    const wardMarkerText = document.createElement('div');
+    wardMarkerText.id = 'ward-label-marker';
+    wardMarkerWapper.appendChild(wardMarkerText);
+
+    window.wardMarker = new mapboxgl.Marker(wardMarkerWapper);
+    wardMarker.addTo(map);
+  }
+
+  wardMarker.setLngLat(lngLat);
+  document.getElementById('ward-label-marker').textContent = wardName;
+}
+
+// non-pure function
+function placeLabelOnWardCenter(wardFeatureName) {
+  // create new Maker as needed
+  if (!window.wardMarker) {
+    const wardMarkerWapper = document.createElement('div');
+    wardMarkerWapper.id = 'ward-label-marker-wrapper';
+    const wardMarkerText = document.createElement('div');
+    wardMarkerText.id = 'ward-label-marker';
+    wardMarkerWapper.appendChild(wardMarkerText);
+
+    window.wardMarker = new mapboxgl.Marker(wardMarkerWapper);
+    wardMarker.addTo(map);
+  }
+
+  const wardFeature = getWardFeatureByName(wardFeatureName);
+  const wardCenter = turf.centerOfMass(wardFeature);
+  const humanWardName = getHumanWardName(wardFeatureName);
+  wardMarker.setLngLat(featurePointToLngLat(wardCenter));
+  document.getElementById('ward-label-marker').textContent = humanWardName;
+}
+
+// Feature<Point> -> LngLat
+function featurePointToLngLat(featurePoint) {
+  const lng = featurePoint.geometry.coordinates[0];
+  const lat = featurePoint.geometry.coordinates[1];
+  return [lng, lat];
+}
+
+function getFeatureById(featureArray, id) {
+  return _.find(featureArray, function(ft){
+    return ft.layer.id === id;
+  });
+}
+
+function getFeatureProp(feature, prop) {
+  return feature.properties[prop];
+}
+
+// FIXME: fails when you call this while map is "flying"?
+function getWardFromLngLat(lngLat) {
+  const pointOnMap = map.project(lngLat);
+  const featureArray = map.queryRenderedFeatures(pointOnMap);
+  const wardFeature = getFeatureById(featureArray, 'wards'); // make constant
+  const name = getFeatureProp(wardFeature, 'Name');
+  return getHumanWardName(name);
+}
+
+function updateInfoLabel(str) {
+  document.getElementsByClassName('info')[0].textContent = str;
+}
+
+function onGeocoderResult (result) {
+  // add marker as needed
+  if (!window.addressMarker) {
+    window.addressMarker = new mapboxgl.Marker();
+    addressMarker.addTo(map);
+  }
+
+  const lngLat = result.result.center;
+  const wardName = getWardFromLngLat(lngLat);
+
+  updateInfoLabel(wardName);
+  addressMarker.setLngLat(lngLat);
+}
+
+//// MAIN
 fetch('./static/geo-json/ulster-county-election-districts.json')
   .then(function(res){
     return res.json();
   })
   .then(function(json) {
-    filteredResults = filterResults(json);
-    addGeoJSONSource("wards", filteredResults);
+    wardFeatureCollection = filterResults(json);
+    mapWardsGeoJSON();
   });
 
-var map = new mapboxgl.Map({
+// https://github.com/mapbox/mapbox-gl-geocoder/blob/master/API.md
+window.geocoder = new MapboxGeocoder({
+    accessToken: mapboxgl.accessToken,
+    bbox: _.flattenDeep(bounds),
+    types: 'address'
+  })
+  .on('result', onGeocoderResult);
+
+// https://www.mapbox.com/mapbox-gl-js/api/#map
+window.map = new mapboxgl.Map({
     container: 'map',
     style: mapStyle,
     maxBounds: bounds,
   }).on('load', function () {
     mapLoaded = true;
-    addGeoJSONSource("wards", filteredResults);
+    mapWardsGeoJSON();
   }).
-  addControl(new MapboxGeocoder({
-    accessToken: mapboxgl.accessToken
-  }));
+  addControl(geocoder);
