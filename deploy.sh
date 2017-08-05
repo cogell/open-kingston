@@ -1,3 +1,4 @@
 #!/bin/bash
 
-aws s3 sync --exclude=".git/*" --exclude=".idea/*" --exclude="node_modules/*" . s3://cogell.com/open-kingston
+yarn build
+aws s3 sync --exclude=".git/*" --exclude=".idea/*" . s3://cogell.com/open-kingston

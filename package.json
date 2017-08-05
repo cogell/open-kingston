@@ -5,8 +5,15 @@
   "main": "index.js",
   "author": "B. Cedric Cogell <cedric.cogell@gmail.com>",
   "license": "MIT",
+  "scripts": {
+    "build": "webpack --config "
+  },
   "dependencies": {
     "@turf/turf": "^4.5.2",
+    "lodash": "^4.17.4",
     "mapbox-gl": "^0.38.0"
+  },
+  "devDependencies": {
+    "webpack": "^3.2.0"
   }
 }
